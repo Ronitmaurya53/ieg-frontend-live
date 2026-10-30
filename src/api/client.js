@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api/v1', 
+  baseURL: 'https://ieg-backend.onrender.com/api/v1', 
   headers: {
     'Content-Type': 'application/json'
   }

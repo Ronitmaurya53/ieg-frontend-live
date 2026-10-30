@@ -74,7 +74,7 @@ export default function Dashboard() {
     if (isCameraOn) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch('http://localhost:8000/api/live_detections');
+          const res = await fetch('https://ieg-ml-live.onrender.com/api/live_detections');
           const data = await res.json();
           setMlFaces(data.faces || []);
           if (data.fire_detected) {
@@ -206,7 +206,7 @@ export default function Dashboard() {
     const formData = new FormData();
     formData.append("file", videoFile);
     try {
-      const res = await fetch("http://localhost:8000/api/investigate", { method: "POST", body: formData });
+      const res = await fetch("https://ieg-ml-live.onrender.com/api/investigate", { method: "POST", body: formData });
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       setForensicResults(data.data);
@@ -487,7 +487,7 @@ function CCTVTab({ isFireDetected, clearAlarms, isCameraOn, setIsCameraOn, simul
               {isCameraOn ? (
                 <>
                 <LiveSurveillance />
-                  {/* <img src="http://localhost:8000/api/video_feed" alt="Live CCTV" className="w-full h-full object-contain" /> */}
+                  {/* <img src="https://ieg-ml-live.onrender.com/api/video_feed" alt="Live CCTV" className="w-full h-full object-contain" /> */}
                   <div className="absolute inset-0 pointer-events-none opacity-10" style={{ background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 3px)' }} />
                   <div className="absolute top-2 sm:top-3 left-2 sm:left-3 w-4 sm:w-5 h-4 sm:h-5 border-l-2 border-t-2 border-amber-400/60 pointer-events-none" />
                   <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-4 sm:w-5 h-4 sm:h-5 border-r-2 border-t-2 border-amber-400/60 pointer-events-none" />
