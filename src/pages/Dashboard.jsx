@@ -10,7 +10,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import { apiClient } from '../api/client';
-
+import LiveSurveillance from '../components/LiveSurveillance';
 // ==========================================
 // 🔊 EMERGENCY ALARM SOUND (Browser Native)
 // ==========================================
@@ -486,7 +486,8 @@ function CCTVTab({ isFireDetected, clearAlarms, isCameraOn, setIsCameraOn, simul
             <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-white/[0.06]">
               {isCameraOn ? (
                 <>
-                  <img src="http://localhost:8000/api/video_feed" alt="Live CCTV" className="w-full h-full object-contain" />
+                <LiveSurveillance />
+                  {/* <img src="http://localhost:8000/api/video_feed" alt="Live CCTV" className="w-full h-full object-contain" /> */}
                   <div className="absolute inset-0 pointer-events-none opacity-10" style={{ background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 3px)' }} />
                   <div className="absolute top-2 sm:top-3 left-2 sm:left-3 w-4 sm:w-5 h-4 sm:h-5 border-l-2 border-t-2 border-amber-400/60 pointer-events-none" />
                   <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-4 sm:w-5 h-4 sm:h-5 border-r-2 border-t-2 border-amber-400/60 pointer-events-none" />
