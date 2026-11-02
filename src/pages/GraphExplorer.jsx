@@ -33,17 +33,32 @@
 // };
 
 // // ==========================================
-// // 🎨 CLEAN CUSTOM NODE
+// // 🎨 CLEAN CUSTOM NODE (UPDATED FOR AUTO-CUT)
 // // ==========================================
 // const CustomDeviceNode = ({ data, id }) => {
-//   const isOff = data.status === 'CRITICAL_RISK' || data.status === 'OFFLINE';
-//   const bgColor = isOff ? 'bg-[#450a0a] animate-pulse' : 'bg-slate-900';
-//   const borderColor = isOff ? 'border-red-500' : 'border-green-500';
+//   const isCritical = data.status === 'CRITICAL_RISK' || data.status === 'OFFLINE';
+//   const isSystemCut = data.status === 'SYSTEM_CUT'; // 🚀 NAYA: Auto-cut status
+
+//   let bgColor = 'bg-slate-900';
+//   let borderColor = 'border-green-500';
+//   let handleColor = 'bg-blue-400';
+
+//   if (isSystemCut) {
+//     // AUTO-CUT ON: System safe but disconnected
+//     bgColor = 'bg-slate-800/80';
+//     borderColor = 'border-slate-500 border-dashed';
+//     handleColor = 'bg-transparent'; // Hide handles
+//   } else if (isCritical) {
+//     // AUTO-CUT OFF: Danger state
+//     bgColor = 'bg-[#450a0a] animate-pulse';
+//     borderColor = 'border-red-500 shadow-[0_0_15px_red]';
+//     handleColor = 'bg-red-500 shadow-[0_0_10px_red]';
+//   }
 
 //   return (
-//     <div className={`relative group flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-xl border-2 ${bgColor} ${borderColor} text-white font-semibold text-[11px] sm:text-[13px] w-[180px] sm:w-[220px] shadow-lg transition-colors`}>
-//       <Handle type="target" position={Position.Top} className="w-2 h-2 bg-blue-400 border-none rounded-full" />
-//       <Handle type="source" position={Position.Bottom} className="w-2 h-2 bg-blue-400 border-none rounded-full" />
+//     <div className={`relative group flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-xl border-2 ${bgColor} ${borderColor} text-white font-semibold text-[11px] sm:text-[13px] w-[180px] sm:w-[220px] shadow-lg transition-all duration-300`}>
+//       <Handle type="target" position={Position.Top} className={`w-2 h-2 ${handleColor} border-none rounded-full transition-colors`} />
+//       <Handle type="source" position={Position.Bottom} className={`w-2 h-2 ${handleColor} border-none rounded-full transition-colors`} />
       
 //       <span className="truncate pr-2" title={data.label}>{data.label}</span>
       
@@ -55,7 +70,6 @@
 //   );
 // };
 
-// // 🚀 FIX: Defined nodeTypes OUTSIDE the component to avoid "new object" re-render error
 // const nodeTypes = { customDevice: CustomDeviceNode };
 
 // export default function GraphExplorer() {
@@ -201,15 +215,23 @@
 //           return allEdges.map(edge => {
 //             const sNode = previousNodesRef.current.find(n => n.id === edge.source);
 //             const tNode = previousNodesRef.current.find(n => n.id === edge.target);
-//             const isDanger = (sNode && (sNode.data.status === 'OFFLINE' || sNode.data.status === 'CRITICAL_RISK')) || 
-//                              (tNode && (tNode.data.status === 'OFFLINE' || tNode.data.status === 'CRITICAL_RISK')) || 
-//                              edge.status === 'OFFLINE' || edge.status === 'CRITICAL_RISK';
+            
+//             // 🚀 NAYA: Edge hiding and coloring logic based on Machine Status
+//             const isSystemCut = (sNode && sNode.data.status === 'SYSTEM_CUT') || 
+//                                 (tNode && tNode.data.status === 'SYSTEM_CUT') || 
+//                                 edge.status === 'SYSTEM_CUT';
+            
+//             const isCritical = (sNode && (sNode.data.status === 'CRITICAL_RISK' || sNode.data.status === 'OFFLINE')) || 
+//                                (tNode && (tNode.data.status === 'CRITICAL_RISK' || tNode.data.status === 'OFFLINE')) || 
+//                                edge.status === 'CRITICAL_RISK' || edge.status === 'OFFLINE';
             
 //             return {
 //               ...edge,
 //               animated: true,
-//               hidden: isDanger,
-//               style: { stroke: '#3b82f6', strokeWidth: 2 }
+//               hidden: isSystemCut, // AUTO-CUT ON: Hide the line completely
+//               style: isCritical && !isSystemCut 
+//                 ? { stroke: '#ef4444', strokeWidth: 3, filter: 'drop-shadow(0 0 5px rgba(239, 68, 68, 0.8))' } // AUTO-CUT OFF: Red glowing line
+//                 : { stroke: '#3b82f6', strokeWidth: 2 } // NORMAL: Blue line
 //             };
 //           });
 //         });
@@ -280,7 +302,6 @@
 //         </div>
 //       </div>
 
-//       {/* 🚀 FIX: Added exact explicit heights to the parent container */}
 //       <div className="w-full h-[60vh] sm:h-[75vh] bg-slate-950 border border-slate-700 rounded-xl overflow-hidden relative">
 //         <ReactFlow 
 //           nodes={nodes} 
@@ -403,7 +424,6 @@
 //     </div>
 //   );
 // }
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactFlow, { 
   Background, Controls, MiniMap, 
@@ -414,9 +434,6 @@ import 'reactflow/dist/style.css';
 import { apiClient } from '../api/client';
 import { Activity, Plus, Server, RefreshCw, Power, X, Zap, Trash2, Edit2, Link } from 'lucide-react';
 
-// ==========================================
-// 🔊 EMERGENCY ALARM SOUND (Browser Native)
-// ==========================================
 const playEmergencyAlarm = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -437,24 +454,21 @@ const playEmergencyAlarm = () => {
   } catch (error) {}
 };
 
-// ==========================================
-// 🎨 CLEAN CUSTOM NODE (UPDATED FOR AUTO-CUT)
-// ==========================================
 const CustomDeviceNode = ({ data, id }) => {
   const isCritical = data.status === 'CRITICAL_RISK' || data.status === 'OFFLINE';
-  const isSystemCut = data.status === 'SYSTEM_CUT'; // 🚀 NAYA: Auto-cut status
+  const isAutoCutOn = localStorage.getItem('ieg_autocut_active') === 'true'; // 🚀 LocalStorage check
 
   let bgColor = 'bg-slate-900';
   let borderColor = 'border-green-500';
   let handleColor = 'bg-blue-400';
 
-  if (isSystemCut) {
-    // AUTO-CUT ON: System safe but disconnected
+  if (isCritical && isAutoCutOn) {
+    // AUTO-CUT ON: Disconnected state (Safe/Grey dashed)
     bgColor = 'bg-slate-800/80';
     borderColor = 'border-slate-500 border-dashed';
-    handleColor = 'bg-transparent'; // Hide handles
+    handleColor = 'bg-transparent';
   } else if (isCritical) {
-    // AUTO-CUT OFF: Danger state
+    // AUTO-CUT OFF: Danger red state
     bgColor = 'bg-[#450a0a] animate-pulse';
     borderColor = 'border-red-500 shadow-[0_0_15px_red]';
     handleColor = 'bg-red-500 shadow-[0_0_10px_red]';
@@ -544,16 +558,13 @@ export default function GraphExplorer() {
 
   const handleDeleteNode = async (nodeId) => {
     if (!window.confirm("Are you sure you want to delete this node?")) return;
-    
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => {
       const filtered = eds.filter((e) => e.source !== nodeId && e.target !== nodeId);
       localStorage.setItem('ieg_custom_edges', JSON.stringify(filtered.filter(ed => ed.id.startsWith('custom-edge-'))));
       return filtered;
     });
-    
     if (nodeId.startsWith('inc-')) return; 
-
     try {
       if (nodeId.startsWith('mach-')) {
         await apiClient.delete(`/machines/${nodeId.replace('mach-', '')}`);
@@ -571,11 +582,9 @@ export default function GraphExplorer() {
         setEditModal({ open: false, nodeId: null, name: '' });
         return;
       }
-
       const actualId = editModal.nodeId.replace('mach-', '').replace('fac-', '');
       const isMachine = editModal.nodeId.startsWith('mach-');
       await apiClient.put(isMachine ? `/machines/${actualId}` : `/facilities/${actualId}`, { name: editModal.name });
-      
       setNodes((nds) => nds.map(n => n.id === editModal.nodeId ? { ...n, data: { ...n.data, label: editModal.name } } : n));
       setEditModal({ open: false, nodeId: null, name: '' });
     } catch (err) {
@@ -616,27 +625,27 @@ export default function GraphExplorer() {
         setEdges(() => {
           const savedCustomEdges = JSON.parse(localStorage.getItem('ieg_custom_edges') || '[]');
           const allEdges = [...apiData.edges, ...savedCustomEdges];
-          
+          const isAutoCutOn = localStorage.getItem('ieg_autocut_active') === 'true'; // 🚀 Read Auto-cut state
+
           return allEdges.map(edge => {
             const sNode = previousNodesRef.current.find(n => n.id === edge.source);
             const tNode = previousNodesRef.current.find(n => n.id === edge.target);
-            
-            // 🚀 NAYA: Edge hiding and coloring logic based on Machine Status
-            const isSystemCut = (sNode && sNode.data.status === 'SYSTEM_CUT') || 
-                                (tNode && tNode.data.status === 'SYSTEM_CUT') || 
-                                edge.status === 'SYSTEM_CUT';
             
             const isCritical = (sNode && (sNode.data.status === 'CRITICAL_RISK' || sNode.data.status === 'OFFLINE')) || 
                                (tNode && (tNode.data.status === 'CRITICAL_RISK' || tNode.data.status === 'OFFLINE')) || 
                                edge.status === 'CRITICAL_RISK' || edge.status === 'OFFLINE';
             
+            // 🚀 HIDE edges if Auto-Cut is ON and critical, otherwise show red if Auto-Cut is OFF
+            const shouldHide = isCritical && isAutoCutOn;
+            const shouldBeRed = isCritical && !isAutoCutOn;
+
             return {
               ...edge,
               animated: true,
-              hidden: isSystemCut, // AUTO-CUT ON: Hide the line completely
-              style: isCritical && !isSystemCut 
-                ? { stroke: '#ef4444', strokeWidth: 3, filter: 'drop-shadow(0 0 5px rgba(239, 68, 68, 0.8))' } // AUTO-CUT OFF: Red glowing line
-                : { stroke: '#3b82f6', strokeWidth: 2 } // NORMAL: Blue line
+              hidden: shouldHide, 
+              style: shouldBeRed 
+                ? { stroke: '#ef4444', strokeWidth: 3, filter: 'drop-shadow(0 0 5px rgba(239, 68, 68, 0.8))' } 
+                : { stroke: '#3b82f6', strokeWidth: 2 } 
             };
           });
         });
@@ -671,10 +680,7 @@ export default function GraphExplorer() {
         const tNode = updatedNodes.find(n => n.id === e.target);
         const isDanger = (sNode && sNode.data.status === 'OFFLINE') || (tNode && tNode.data.status === 'OFFLINE');
         
-        return { 
-          ...e, 
-          hidden: isDanger
-        };
+        return { ...e, hidden: isDanger };
       }));
 
       return updatedNodes;
