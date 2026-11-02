@@ -1,4 +1,5 @@
-// import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+
+// import { useState, useEffect, useCallback, useRef } from 'react';
 // import ReactFlow, { 
 //   Background, Controls, MiniMap, 
 //   useNodesState, useEdgesState, addEdge, ConnectionMode,
@@ -54,6 +55,9 @@
 //   );
 // };
 
+// // 🚀 FIX: Defined nodeTypes OUTSIDE the component to avoid "new object" re-render error
+// const nodeTypes = { customDevice: CustomDeviceNode };
+
 // export default function GraphExplorer() {
 //   const [nodes, setNodes, onNodesChange] = useNodesState([]);
 //   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -68,10 +72,8 @@
 //   const [submitting, setSubmitting] = useState(false);
 
 //   const [editModal, setEditModal] = useState({ open: false, nodeId: null, name: '' });
-  
 //   const [edgeEditModal, setEdgeEditModal] = useState({ open: false, edgeId: null, label: '' });
 
-//   const nodeTypes = useMemo(() => ({ customDevice: CustomDeviceNode }), []);
 //   const previousNodesRef = useRef([]);
 
 //   const onConnect = useCallback((params) => {
@@ -121,7 +123,6 @@
 //     setEdgeEditModal({ open: false, edgeId: null, label: '' });
 //   };
 
-  
 //   const handleDeleteNode = async (nodeId) => {
 //     if (!window.confirm("Are you sure you want to delete this node?")) return;
     
@@ -263,7 +264,7 @@
 //     } catch (err) { alert("Failed."); } finally { setSubmitting(false); }
 //   };
 
-//   if (loading && nodes.length === 0) return <div className="text-slate-400 flex h-full items-center justify-center">Loading Data...</div>;
+//   if (loading && nodes.length === 0) return <div className="text-slate-400 flex h-[60vh] items-center justify-center">Loading Data...</div>;
 
 //   return (
 //     <div className="h-full flex flex-col space-y-4 relative">
@@ -279,7 +280,8 @@
 //         </div>
 //       </div>
 
-//       <div className="w-full bg-slate-950 border border-slate-700 rounded-xl overflow-hidden relative flex-1 min-h-[50vh] sm:min-h-[70vh]">
+//       {/* 🚀 FIX: Added exact explicit heights to the parent container */}
+//       <div className="w-full h-[60vh] sm:h-[75vh] bg-slate-950 border border-slate-700 rounded-xl overflow-hidden relative">
 //         <ReactFlow 
 //           nodes={nodes} 
 //           edges={edges} 
@@ -436,17 +438,32 @@ const playEmergencyAlarm = () => {
 };
 
 // ==========================================
-// 🎨 CLEAN CUSTOM NODE
+// 🎨 CLEAN CUSTOM NODE (UPDATED FOR AUTO-CUT)
 // ==========================================
 const CustomDeviceNode = ({ data, id }) => {
-  const isOff = data.status === 'CRITICAL_RISK' || data.status === 'OFFLINE';
-  const bgColor = isOff ? 'bg-[#450a0a] animate-pulse' : 'bg-slate-900';
-  const borderColor = isOff ? 'border-red-500' : 'border-green-500';
+  const isCritical = data.status === 'CRITICAL_RISK' || data.status === 'OFFLINE';
+  const isSystemCut = data.status === 'SYSTEM_CUT'; // 🚀 NAYA: Auto-cut status
+
+  let bgColor = 'bg-slate-900';
+  let borderColor = 'border-green-500';
+  let handleColor = 'bg-blue-400';
+
+  if (isSystemCut) {
+    // AUTO-CUT ON: System safe but disconnected
+    bgColor = 'bg-slate-800/80';
+    borderColor = 'border-slate-500 border-dashed';
+    handleColor = 'bg-transparent'; // Hide handles
+  } else if (isCritical) {
+    // AUTO-CUT OFF: Danger state
+    bgColor = 'bg-[#450a0a] animate-pulse';
+    borderColor = 'border-red-500 shadow-[0_0_15px_red]';
+    handleColor = 'bg-red-500 shadow-[0_0_10px_red]';
+  }
 
   return (
-    <div className={`relative group flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-xl border-2 ${bgColor} ${borderColor} text-white font-semibold text-[11px] sm:text-[13px] w-[180px] sm:w-[220px] shadow-lg transition-colors`}>
-      <Handle type="target" position={Position.Top} className="w-2 h-2 bg-blue-400 border-none rounded-full" />
-      <Handle type="source" position={Position.Bottom} className="w-2 h-2 bg-blue-400 border-none rounded-full" />
+    <div className={`relative group flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 rounded-xl border-2 ${bgColor} ${borderColor} text-white font-semibold text-[11px] sm:text-[13px] w-[180px] sm:w-[220px] shadow-lg transition-all duration-300`}>
+      <Handle type="target" position={Position.Top} className={`w-2 h-2 ${handleColor} border-none rounded-full transition-colors`} />
+      <Handle type="source" position={Position.Bottom} className={`w-2 h-2 ${handleColor} border-none rounded-full transition-colors`} />
       
       <span className="truncate pr-2" title={data.label}>{data.label}</span>
       
@@ -458,7 +475,6 @@ const CustomDeviceNode = ({ data, id }) => {
   );
 };
 
-// 🚀 FIX: Defined nodeTypes OUTSIDE the component to avoid "new object" re-render error
 const nodeTypes = { customDevice: CustomDeviceNode };
 
 export default function GraphExplorer() {
@@ -604,15 +620,23 @@ export default function GraphExplorer() {
           return allEdges.map(edge => {
             const sNode = previousNodesRef.current.find(n => n.id === edge.source);
             const tNode = previousNodesRef.current.find(n => n.id === edge.target);
-            const isDanger = (sNode && (sNode.data.status === 'OFFLINE' || sNode.data.status === 'CRITICAL_RISK')) || 
-                             (tNode && (tNode.data.status === 'OFFLINE' || tNode.data.status === 'CRITICAL_RISK')) || 
-                             edge.status === 'OFFLINE' || edge.status === 'CRITICAL_RISK';
+            
+            // 🚀 NAYA: Edge hiding and coloring logic based on Machine Status
+            const isSystemCut = (sNode && sNode.data.status === 'SYSTEM_CUT') || 
+                                (tNode && tNode.data.status === 'SYSTEM_CUT') || 
+                                edge.status === 'SYSTEM_CUT';
+            
+            const isCritical = (sNode && (sNode.data.status === 'CRITICAL_RISK' || sNode.data.status === 'OFFLINE')) || 
+                               (tNode && (tNode.data.status === 'CRITICAL_RISK' || tNode.data.status === 'OFFLINE')) || 
+                               edge.status === 'CRITICAL_RISK' || edge.status === 'OFFLINE';
             
             return {
               ...edge,
               animated: true,
-              hidden: isDanger,
-              style: { stroke: '#3b82f6', strokeWidth: 2 }
+              hidden: isSystemCut, // AUTO-CUT ON: Hide the line completely
+              style: isCritical && !isSystemCut 
+                ? { stroke: '#ef4444', strokeWidth: 3, filter: 'drop-shadow(0 0 5px rgba(239, 68, 68, 0.8))' } // AUTO-CUT OFF: Red glowing line
+                : { stroke: '#3b82f6', strokeWidth: 2 } // NORMAL: Blue line
             };
           });
         });
@@ -683,7 +707,6 @@ export default function GraphExplorer() {
         </div>
       </div>
 
-      {/* 🚀 FIX: Added exact explicit heights to the parent container */}
       <div className="w-full h-[60vh] sm:h-[75vh] bg-slate-950 border border-slate-700 rounded-xl overflow-hidden relative">
         <ReactFlow 
           nodes={nodes} 
